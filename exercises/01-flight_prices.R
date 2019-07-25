@@ -3,8 +3,15 @@
 # To the regular exercise, please refer to a differnt exercise script.
 
 # Read flight data ----
+
 library(tidyverse)
-flights <- readr::read_csv("datasets/local/flight_prices.csv") # <- replace location with S3
+library(riskir)
+library(lubridate)
+
+flights <- read_csv_from_s3(
+  bucket = "riskified-research-files",
+  filepath = "statistical-learning-course/flight_prices.csv",
+  stringsAsFactors = FALSE)
 
 # glimpse
 glimpse(flights)
@@ -12,6 +19,8 @@ glimpse(flights)
 # Train/test split ----
 set.seed(0)
 flights <- flights %>% 
+  as_tibble() %>% 
+  mutate_at(vars(is_roundtrip, domestic_trip), as.logical) %>% 
   mutate(is_train = runif(NROW(order_id)) < 0.8)
 
 # This is an advance exercise, in the sense that you are free to "roam in the wild" as long as you are 
@@ -22,6 +31,50 @@ flights <- flights %>%
 # That is, you can use feature selection (e.g., stepwise), feature importance, transformation of variables anyway you like,
 # for example: factoring, log, sqrt, or any other which comes to mind.
 # preprocessing anyway you like, outlier removal, quantile regression, etc.
+
+pop_score <- flights %>% 
+  mutate(beginning_week = floor_date(ymd_hms(beginning_of_trip), "week")) %>% 
+  count(beginning_week, name = "popularity_count") %>% 
+  mutate(popularity_rank = min_rank(popularity_count)) %>% 
+  select(beginning_week, popularity_rank, popularity_count)
+  
+flights_simple <- flights %>% 
+  filter(!is.na(min_days_until_trip)) %>%
+  mutate_at(vars(created_at, beginning_of_trip, end_of_trip), ymd_hms) %>% 
+  mutate(beginning_week = floor_date(beginning_of_trip, "week")) %>% 
+  left_join(pop_score, by = "beginning_week") %>% 
+  mutate(min_days_until_trip = floor(min_days_until_trip/10)) %>% 
+  mutate(sleep_time = between(local_created_hour, 3, 7),
+         is_weekday = between(local_created_dow, 1, 5),
+         beginning_month = month(beginning_of_trip),
+         end_month = month(end_of_trip),
+         days_from_flight = difftime(beginning_of_trip, created_at, units = "days"),
+         visit_length_days = visit_length_hours / 24) 
+
+flights_train <- flights_simple %>% 
+  filter(is_train) 
+
+# make local_created_dow and local_created_hour categorical
+
+our_model <- lm(order_total_spent ~ num_of_passengers +
+                  is_roundtrip + domestic_trip +
+                  number_of_flights + sleep_time +
+                  number_of_flights * num_of_passengers * max_connection_cnt +
+                  popularity_count + min_days_until_trip,
+                data = flights_train)
+
+summary(our_model)
+
+flights_simple %>% 
+  mutate(predicted_price = predict(our_model, newdata = flights_simple)) %>% 
+  mutate(predicted_price = ifelse(is.na(predicted_price), 
+                                  0, predicted_price)) %>% 
+  model_accuracy(order_total_spent, predicted_price)
+
+
+# log:
+# min_days_until_trip
+# visit_length_hours
 
 # If you know pca (which we will talk about later) or regularization methods (lasso, ridge) you can also use them.
 # If you have additional relevant tools from the current domain (linear regression and generalization), you are welcome to use them.
@@ -67,3 +120,10 @@ flights %>%
   mutate(predicted_price = predict(flights_lm, newdata = flights)) %>% 
   mutate(predicted_price = ifelse(is.na(predicted_price), 0, predicted_price)) %>% 
   model_accuracy(order_total_spent, predicted_price)
+
+
+
+
+lm(formula = order_total_spent ~ num_of_passengers + max_connection_cnt + 
+    is_roundtrip + domestic_trip + number_of_flights + sleep_time, 
+  data = flights_train)

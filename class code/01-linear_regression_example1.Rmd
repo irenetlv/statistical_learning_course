@@ -18,7 +18,6 @@ We also add some country metadata from the [worldbank](https://data.worldbank.or
 
 ```{r read alchohol data}
 alchohol <- read_csv("https://github.com/sarid-ins/statistical_learning_course/raw/master/datasets/alchohol_consumption/alchohol_consumption_ready.csv")
-
 ```
 
 ## The beer model
@@ -149,18 +148,18 @@ Each time we add a new variable to a model, our $R^2$ increases by a certain amo
 ```{r rsquare demonstration}
 
 # just spirit
-summary(lm(beer_servings ~ spirit_servings, alchohol))$r.squared
+summary(lm(beer_servings ~ spirit_servings, alchohol))$adj.r.squared
 
 # just wine
-summary(lm(beer_servings ~ wine_servings, alchohol))$r.squared
+summary(lm(beer_servings ~ wine_servings, alchohol))$adj.r.squared
 
 # spirit and wine
-summary(lm(beer_servings ~ spirit_servings + wine_servings, alchohol))$r.squared
+summary(lm(beer_servings ~ spirit_servings + wine_servings, alchohol))$adj.r.squared
 
 # adding continent
-summary(lm(beer_servings ~ spirit_servings + Continent_Name, alchohol))$r.squared
-summary(lm(beer_servings ~ wine_servings + Continent_Name, alchohol))$r.squared
-summary(lm(beer_servings ~ spirit_servings + wine_servings + Continent_Name, alchohol))$r.squared
+summary(lm(beer_servings ~ spirit_servings + Continent_Name, alchohol))$adj.r.squared
+summary(lm(beer_servings ~ wine_servings + Continent_Name, alchohol))$adj.r.squared
+summary(lm(beer_servings ~ spirit_servings + wine_servings + Continent_Name, alchohol))$adj.r.squared
 ```
 
 In this case: 
